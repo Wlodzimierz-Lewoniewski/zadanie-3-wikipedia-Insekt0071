@@ -31,3 +31,14 @@ images = re.findall(image_pattern, html_content)
 print("Znalezione URL obrazków:")
 for img in images[:3]:
     print("https:" + img[0])  # Dodajemy "https:" na początku URL
+
+# Wzorzec dla URL źródeł zewnętrznych
+external_link_pattern = r'href="(https?://[^"]+)"'
+
+# Znalezienie dopasowań dla zewnętrznych linków
+external_links = re.findall(external_link_pattern, html_content)
+
+# Wyświetlenie pierwszych trzech URL źródeł zewnętrznych
+print("Znalezione URL źródeł zewnętrznych:")
+for link in external_links[:3]:
+    print(link)
