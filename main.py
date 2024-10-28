@@ -42,3 +42,13 @@ external_links = re.findall(external_link_pattern, html_content)
 print("Znalezione URL źródeł zewnętrznych:")
 for link in external_links[:3]:
     print(link)
+
+category_pattern = r'href="/wiki/Kategoria:[^":#]+" title="([^"]+)"'
+
+# Znalezienie dopasowań dla kategorii
+categories = re.findall(category_pattern, html_content)
+
+# Wyświetlenie pierwszych trzech kategorii
+print("Znalezione kategorie artykułu:")
+for category in categories[:3]:
+    print(category)
