@@ -1,6 +1,101 @@
 import re
 import requests
 from urllib.parse import quote
+from html.parser import HTMLParser
+
+class CategoryPageParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.in_mw_pages = False
+        self.article_links = []
+        self.data_collected = False
+
+    def handle_starttag(self, tag, attrs):
+        attrs_dict = dict(attrs)
+        if tag == 'div' and attrs_dict.get('id') == 'mw-pages':
+            self.in_mw_pages = True
+        elif self.in_mw_pages and tag == 'a':
+            href = attrs_dict.get('href', '')
+            title = attrs_dict.get('title', '')
+            if href.startswith('/wiki/') and title and not href.startswith('/wiki/Kategoria:') and not href.startswith('/wiki/Specjalna:'):
+                self.article_links.append((href, title))
+                if len(self.article_links) == 2:
+                    self.data_collected = True
+                    self.in_mw_pages = False  # Stop parsing further
+
+    def handle_endtag(self, tag):
+        if tag == 'div' and self.in_mw_pages:
+            self.in_mw_pages = False
+
+class ArticlePageParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.in_content = False
+        self.in_catlinks = False
+        self.internal_links = []
+        self.images = []
+        self.external_links = []
+        self.categories = []
+        self.seen_titles = set()
+        self.seen_external_links = set()
+        self.seen_categories = set()
+        self.internal_links_collected = False
+        self.images_collected = False
+        self.external_links_collected = False
+        self.categories_collected = False
+
+    def handle_starttag(self, tag, attrs):
+        attrs_dict = dict(attrs)
+        # Start of content
+        if tag == 'div' and attrs_dict.get('id') == 'mw-content-text':
+            self.in_content = True
+        # Categories
+        elif tag == 'div' and attrs_dict.get('id') == 'catlinks':
+            self.in_catlinks = True
+
+        if self.in_content and not self.internal_links_collected:
+            if tag == 'a':
+                href = attrs_dict.get('href', '')
+                title = attrs_dict.get('title', '')
+                if href.startswith('/wiki/') and title and not href.startswith('/wiki/Kategoria:') and not href.startswith('/wiki/Specjalna:'):
+                    if title not in self.seen_titles:
+                        self.internal_links.append(title)
+                        self.seen_titles.add(title)
+                        if len(self.internal_links) == 5:
+                            self.internal_links_collected = True
+            elif tag == 'img' and not self.images_collected:
+                src = attrs_dict.get('src', '')
+                if src.startswith('//upload.wikimedia.org'):
+                    if src not in self.images:
+                        self.images.append(src)
+                        if len(self.images) == 3:
+                            self.images_collected = True
+
+        if not self.external_links_collected:
+            if tag == 'a':
+                href = attrs_dict.get('href', '')
+                if href.startswith('http') and href not in self.seen_external_links:
+                    self.external_links.append(href)
+                    self.seen_external_links.add(href)
+                    if len(self.external_links) == 3:
+                        self.external_links_collected = True
+
+        if self.in_catlinks and not self.categories_collected:
+            if tag == 'a':
+                href = attrs_dict.get('href', '')
+                title = attrs_dict.get('title', '')
+                if href.startswith('/wiki/Kategoria:') and title and title not in self.seen_categories:
+                    category_name = title.replace('Kategoria:', '')
+                    self.categories.append(category_name)
+                    self.seen_categories.add(title)
+                    if len(self.categories) == 3:
+                        self.categories_collected = True
+
+    def handle_endtag(self, tag):
+        if tag == 'div' and self.in_content:
+            self.in_content = False
+        if tag == 'div' and self.in_catlinks:
+            self.in_catlinks = False
 
 def get_html_content(url):
     response = requests.get(url)
@@ -10,61 +105,31 @@ def get_html_content(url):
     else:
         raise Exception("Błąd podczas pobierania strony.")
 
-def extract_internal_links(html_content):
-    # Pattern to find links in the category page
-    link_pattern = r'<a href="(/wiki/[^":#]+)"[^>]* title="([^"]+)"'
-    links = re.findall(link_pattern, html_content)
-    article_links = []
-    for href, title in links:
-        if not href.startswith('/wiki/Kategoria:') and not href.startswith('/wiki/Specjalna:'):
-            article_links.append((href, title))
-            if len(article_links) == 2:
-                break
-    return article_links
-
-def extract_data_from_article(html_content):
-    # Extract internal links
-    internal_links_pattern = r'<a href="(/wiki/[^":#]+)"[^>]* title="([^"]+)"'
-    internal_links_matches = re.findall(internal_links_pattern, html_content)
-    internal_links = []
-    seen_titles = set()
-    for href, title in internal_links_matches:
-        if not href.startswith('/wiki/Kategoria:') and not href.startswith('/wiki/Specjalna:') and title not in seen_titles:
-            internal_links.append(title)
-            seen_titles.add(title)
-            if len(internal_links) == 5:
-                break
-    formatted_internal_links = " | ".join(internal_links)
-
-    # Extract images
-    images_pattern = r'<img[^>]+src="(//upload\.wikimedia\.org[^"]+\.(?:jpg|jpeg|png|svg))"'
-    images = re.findall(images_pattern, html_content)
-    formatted_images = " | ".join(images[:3])
-
-    # Extract external links
-    external_links_pattern = r'<a[^>]+href="(https?://[^"]+)"[^>]*>'
-    external_links = re.findall(external_links_pattern, html_content)
-    formatted_external_links = " | ".join(external_links[:3])
-
-    # Extract categories
-    category_pattern = r'<a href="/wiki/Kategoria:[^"]+"[^>]*>([^<]+)</a>'
-    categories = re.findall(category_pattern, html_content)
-    formatted_categories = " | ".join(categories[:3])
-
-    return formatted_internal_links, formatted_images, formatted_external_links, formatted_categories
-
 category_query = input().strip()
-# Adjust the URL to point to the category page
 category_url = f"https://pl.wikipedia.org/wiki/Kategoria:{quote(category_query.replace(' ', '_'))}"
 category_html_content = get_html_content(category_url)
 
-article_links = extract_internal_links(category_html_content)
+# Parse category page to get article links
+category_parser = CategoryPageParser()
+category_parser.feed(category_html_content)
+article_links = category_parser.article_links
 
 output = ""
 for href, title in article_links:
     article_url = f"https://pl.wikipedia.org{href}"
     article_html_content = get_html_content(article_url)
-    internal_links, images, external_links, categories = extract_data_from_article(article_html_content)
+    article_parser = ArticlePageParser()
+    article_parser.feed(article_html_content)
+
+    # Collect first 5 internal links
+    internal_links = " | ".join(article_parser.internal_links[:5])
+    # Collect first 3 images
+    images = " | ".join(article_parser.images[:3])
+    # Collect first 3 external links
+    external_links = " | ".join(article_parser.external_links[:3])
+    # Collect first 3 categories
+    categories = " | ".join(article_parser.categories[:3])
+
     output += f"{internal_links}\n{images}\n{external_links}\n{categories}\n"
 
 print(output.strip())
