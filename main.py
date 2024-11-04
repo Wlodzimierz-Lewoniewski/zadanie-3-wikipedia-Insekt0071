@@ -1,40 +1,37 @@
 import requests
-from bs4 import BeautifulSoup
 import re
 
 def get_category_links(category_name):
     url = f"https://pl.wikipedia.org/wiki/Kategoria:{category_name.replace(' ', '_')}"
     response = requests.get(url)
-    soup = BeautifulSoup(response.text, "html.parser")
-    article_links = [
-        link.get('href') for link in soup.select('.mw-category-group a')[:2]
-    ]
+    html = response.text
+    
+    # Wyszukiwanie pierwszych dwóch linków do artykułów
+    links = re.findall(r'href="(/wiki/[^":]*?)"', html)
+    # Filtracja tylko do artykułów bez przestrzeni nazw (np. Kategoria, Pomoc)
+    article_links = [link for link in links if ':' not in link][:2]
     return article_links
 
 def extract_data_from_article(article_url):
     url = f"https://pl.wikipedia.org{article_url}"
     response = requests.get(url)
-    soup = BeautifulSoup(response.text, "html.parser")
+    html = response.text
     
-    # Linki wewnętrzne
-    internal_links = [
-        link.text for link in soup.select("a[href^='/wiki/']:not([href*=':'])")[:5]
-    ]
+    # Linki wewnętrzne (pierwsze 5)
+    internal_links = re.findall(r'<a href="(/wiki/[^":]*?)"[^>]*?>(.*?)</a>', html)
+    internal_links = [text for _, text in internal_links if ':' not in _][:5]
     
-    # Obrazki
-    image_urls = [
-        img.get('src') for img in soup.select("img[src^='//upload.wikimedia.org']")[:3]
-    ]
+    # Obrazki (pierwsze 3)
+    image_urls = re.findall(r'src="(//upload\.wikimedia\.org[^"]*?\.(jpg|png|svg))"', html)
+    image_urls = ["https:" + url[0] for url in image_urls][:3]
     
-    # Linki zewnętrzne
-    external_links = [
-        a.get('href') for a in soup.select("a[href^='http']")[:3]
-    ]
+    # Linki zewnętrzne (pierwsze 3)
+    external_links = re.findall(r'href="(https?://[^"]*?)"', html)
+    external_links = external_links[:3]
     
-    # Kategorie
-    categories = [
-        cat.text for cat in soup.select("#mw-normal-catlinks ul li")[:3]
-    ]
+    # Kategorie (pierwsze 3)
+    categories = re.findall(r'<a href="/wiki/Kategoria:[^"]*?" title="Kategoria:[^"]*?">(.*?)</a>', html)
+    categories = categories[:3]
     
     return {
         "internal_links": internal_links,
