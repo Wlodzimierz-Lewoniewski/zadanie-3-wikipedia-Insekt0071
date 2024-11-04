@@ -39,10 +39,8 @@ def extract_data_from_article(article_url):
         "categories": categories
     }
 
-
-
 def main():
-    category_name = input()
+    category_name = input("Podaj nazwę kategorii: ")
     article_links = get_category_links(category_name)
     
     for article_link in article_links:
@@ -50,7 +48,7 @@ def main():
         print(" | ".join(data["internal_links"]))
         print(" | ".join(data["image_urls"]))
         print(" | ".join(data["external_links"]))
-        print("'"+" | ".join(data["categories"])+"'")
+        print(" | ".join(data["categories"]))
 
 if __name__ == "__main__":
     main()
