@@ -40,6 +40,7 @@ def extract_data_from_article(article_url):
     }
 
 
+
 def main():
     category_name = input("Podaj nazwę kategorii: ")
     article_links = get_category_links(category_name)
