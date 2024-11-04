@@ -37,6 +37,7 @@ def extract_data_from_article(url):
     return formatted_internal_links, formatted_images, formatted_external_links, formatted_categories
 
 category_query = input()
+category_query.strip()
 category_url = f"https://pl.wikipedia.org/wiki/{quote(category_query)}"
 category_html_content = get_html_content(category_url)
 
