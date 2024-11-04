@@ -35,7 +35,8 @@ def extract_categories(html_content):
     return " | ".join(categories[:3])
 
 #pobieranie kou html
-html_content = get_wiki_content("Miasta na prawach powiatu")
+a = input()
+html_content = get_wiki_content(a)
 
 internal_links = extract_internal_links(html_content)
 images = extract_images(html_content)
@@ -43,6 +44,3 @@ external_links = extract_external_links(html_content)
 categories = extract_categories(html_content)
 
 print(internal_links, images, external_links, categories)
-#print(images)
-#print(external_links)
-#print(categories)
