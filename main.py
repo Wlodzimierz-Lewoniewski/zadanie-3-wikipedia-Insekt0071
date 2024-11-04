@@ -11,13 +11,23 @@ def get_html_content(url):
         raise Exception("Błąd podczas pobierania strony.")
 
 def get_div_content(html_content, div_id):
-    # Adjusted pattern to be non-greedy and handle nested divs
-    pattern = rf'<div[^>]*id="{div_id}"[^>]*?>(.*?)</div>\s*</div>'
-    match = re.search(pattern, html_content, re.DOTALL)
-    if match:
-        return match.group(1)
-    else:
+    # Pattern to match the opening div with the specified id
+    start_pattern = rf'<div[^>]*id="{div_id}"[^>]*>'
+    start_match = re.search(start_pattern, html_content)
+    if not start_match:
         return ''
+    start_index = start_match.end()
+
+    # Find the closing div tag that matches the opening one
+    end_pattern = r'</div>'
+    end_match = re.search(end_pattern, html_content[start_index:])
+    if not end_match:
+        return ''
+    end_index = start_index + end_match.end()
+
+    # Return the content between the opening and closing div
+    return html_content[start_index:end_index - len('</div>')]
+
 
 def extract_internal_links(html_content):
     mw_pages_content = get_div_content(html_content, 'mw-pages')
