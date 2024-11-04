@@ -6,32 +6,34 @@ from html.parser import HTMLParser
 class CategoryPageParser(HTMLParser):
     def __init__(self):
         super().__init__()
-        self.in_mw_pages = False
+        self.in_list = False
         self.article_links = []
         self.data_collected = False
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
-        if tag == 'div' and attrs_dict.get('id') == 'mw-pages':
-            self.in_mw_pages = True
-        elif self.in_mw_pages and tag == 'a':
+        if tag == 'div' and ('class', 'mw-category-group') in attrs:
+            self.in_list = True
+        elif self.in_list and tag == 'a':
             href = attrs_dict.get('href', '')
             title = attrs_dict.get('title', '')
             if href.startswith('/wiki/') and title and not href.startswith('/wiki/Kategoria:') and not href.startswith('/wiki/Specjalna:'):
                 self.article_links.append((href, title))
                 if len(self.article_links) == 2:
                     self.data_collected = True
-                    self.in_mw_pages = False  # Stop parsing further
+                    self.in_list = False  # Stop parsing further
 
     def handle_endtag(self, tag):
-        if tag == 'div' and self.in_mw_pages:
-            self.in_mw_pages = False
+        if tag == 'div' and self.in_list:
+            self.in_list = False
 
 class ArticlePageParser(HTMLParser):
     def __init__(self):
         super().__init__()
         self.in_content = False
-        self.in_catlinks = False
+        self.in_body_content = False
+        self.in_reference = False
+        self.in_category = False
         self.internal_links = []
         self.images = []
         self.external_links = []
@@ -47,17 +49,17 @@ class ArticlePageParser(HTMLParser):
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
         # Start of content
-        if tag == 'div' and attrs_dict.get('id') == 'mw-content-text':
-            self.in_content = True
+        if tag == 'div' and attrs_dict.get('id') == 'bodyContent':
+            self.in_body_content = True
         # Categories
         elif tag == 'div' and attrs_dict.get('id') == 'catlinks':
-            self.in_catlinks = True
+            self.in_category = True
 
-        if self.in_content and not self.internal_links_collected:
+        if self.in_body_content and not self.internal_links_collected:
             if tag == 'a':
                 href = attrs_dict.get('href', '')
                 title = attrs_dict.get('title', '')
-                if href.startswith('/wiki/') and title and not href.startswith('/wiki/Kategoria:') and not href.startswith('/wiki/Specjalna:'):
+                if href.startswith('/wiki/') and title and not href.startswith('/wiki/Kategoria:') and not href.startswith('/wiki/Specjalna:') and ':' not in href:
                     if title not in self.seen_titles:
                         self.internal_links.append(title)
                         self.seen_titles.add(title)
@@ -80,7 +82,7 @@ class ArticlePageParser(HTMLParser):
                     if len(self.external_links) == 3:
                         self.external_links_collected = True
 
-        if self.in_catlinks and not self.categories_collected:
+        if self.in_category and not self.categories_collected:
             if tag == 'a':
                 href = attrs_dict.get('href', '')
                 title = attrs_dict.get('title', '')
@@ -92,10 +94,10 @@ class ArticlePageParser(HTMLParser):
                         self.categories_collected = True
 
     def handle_endtag(self, tag):
-        if tag == 'div' and self.in_content:
-            self.in_content = False
-        if tag == 'div' and self.in_catlinks:
-            self.in_catlinks = False
+        if tag == 'div' and self.in_body_content:
+            self.in_body_content = False
+        if tag == 'div' and self.in_category:
+            self.in_category = False
 
 def get_html_content(url):
     response = requests.get(url)
