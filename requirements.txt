@@ -2,4 +2,4 @@ requests==2.32.3
 numpy
 re
 requests
-urllib.parse 
+urllib
