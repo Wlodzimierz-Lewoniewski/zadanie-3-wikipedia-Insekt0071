@@ -11,7 +11,8 @@ def get_html_content(url):
         raise Exception("Błąd podczas pobierania strony.")
 
 def get_div_content(html_content, div_id):
-    pattern = rf'<div[^>]*id="{div_id}"[^>]*>(.*?)</div>'
+    # Adjusted pattern to be non-greedy and handle nested divs
+    pattern = rf'<div[^>]*id="{div_id}"[^>]*?>(.*?)</div>\s*</div>'
     match = re.search(pattern, html_content, re.DOTALL)
     if match:
         return match.group(1)
@@ -28,8 +29,8 @@ def extract_internal_links(html_content):
     for href, title in links:
         if not href.startswith('/wiki/Kategoria:') and not href.startswith('/wiki/Specjalna:'):
             article_links.append((href, title))
-        if len(article_links) == 2:
-            break
+            if len(article_links) == 2:
+                break
     return article_links
 
 def extract_data_from_article(url):
@@ -46,8 +47,8 @@ def extract_data_from_article(url):
             if title not in seen_titles:
                 internal_links.append(title)
                 seen_titles.add(title)
-        if len(internal_links) == 5:
-            break
+            if len(internal_links) == 5:
+                break
     formatted_internal_links = " | ".join(internal_links)
 
     # Extract images
@@ -79,7 +80,8 @@ def extract_data_from_article(url):
     return formatted_internal_links, formatted_images, formatted_external_links, formatted_categories
 
 category_query = input().strip()
-category_url = f"https://pl.wikipedia.org/wiki/{quote(category_query)}"
+# Adjust the URL to point to the category page
+category_url = f"https://pl.wikipedia.org/wiki/Kategoria:{quote(category_query.replace(' ', '_'))}"
 category_html_content = get_html_content(category_url)
 
 article_links = extract_internal_links(category_html_content)
